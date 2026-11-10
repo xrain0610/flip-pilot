@@ -9,6 +9,10 @@ build/
 # Local SDK path
 local.properties
 
+# Signing material (never commit)
+keystore/
+keystore.properties
+
 # IDE
 .idea/
 *.iml
@@ -19,3 +23,5 @@ captures/
 # OS
 .DS_Store
 Thumbs.db
+.openbitfun/
+/.openbitfun/search/flashgrep-index/

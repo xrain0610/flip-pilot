@@ -1,7 +1,21 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+// Signing material lives outside the repo; see README for how to recreate it.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        FileInputStream(keystorePropertiesFile).use { load(it) }
+    }
+}
+
+// Allows producing a debug-signed release APK for in-place upgrades on dev devices.
+val useDebugSigning = providers.gradleProperty("useDebugSigning").orNull == "true"
 
 android {
     namespace = "com.flip5.dockpilot"
@@ -12,13 +26,29 @@ android {
         applicationId = "com.flip5.dockpilot"
         minSdk = 31
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2611001
+        versionName = "26.11.1"
+    }
+
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = when {
+                useDebugSigning -> signingConfigs.getByName("debug")
+                keystorePropertiesFile.exists() -> signingConfigs.getByName("release")
+                else -> null
+            }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
