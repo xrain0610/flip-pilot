@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FlipPilot</string>
+    <string name="app_desc">外接屏幕插拔自动配置</string>
+    <string name="service_channel_name">外接屏监控</string>
+    <string name="service_channel_desc">插拔外接屏时自动配置折叠状态与显示</string>
+</resources>
