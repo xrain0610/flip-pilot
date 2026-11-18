@@ -39,6 +39,7 @@ class DisplayMonitorService : Service() {
     companion object {
         const val ACTION_START = "com.flip5.dockpilot.action.START"
         const val ACTION_STOP = "com.flip5.dockpilot.action.STOP"
+        const val ACTION_REFRESH = "com.flip5.dockpilot.action.REFRESH"
 
         private const val CHANNEL_ID = "display_monitor"
         private const val NOTIFICATION_ID = 1
@@ -58,6 +59,15 @@ class DisplayMonitorService : Service() {
         fun stop(context: Context) {
             val intent = Intent(context, DisplayMonitorService::class.java).setAction(ACTION_STOP)
             context.startService(intent)
+        }
+
+        /** Re-renders the notification (used when the accessibility connection changes). */
+        fun refreshNotification(context: Context) {
+            try {
+                val intent = Intent(context, DisplayMonitorService::class.java).setAction(ACTION_REFRESH)
+                context.startService(intent)
+            } catch (_: Throwable) {
+            }
         }
     }
 
@@ -120,6 +130,10 @@ class DisplayMonitorService : Service() {
             prefs.monitorEnabled = false
             stopSelf()
             return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_REFRESH) {
+            updateStatus(_status.value)
+            return START_STICKY
         }
 
         startInForeground(buildNotification("监控中 · 待机"))
@@ -352,10 +366,12 @@ class DisplayMonitorService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val shizuku = if (Shell.hasPermission()) "Shizuku ✓" else "Shizuku ✗"
+        val accessibility = if (OverlayRotationService.isConnected()) "无障碍 ✓" else "无障碍 ✗"
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_dock)
             .setContentTitle(getString(R.string.app_name))
-            .setContentText(text)
+            .setContentText("$text · $shizuku · $accessibility")
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

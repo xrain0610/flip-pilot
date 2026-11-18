@@ -3,6 +3,7 @@ package com.flip5.dockpilot
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.display.DisplayManager
@@ -12,6 +13,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.view.Display
 import android.view.View
+import android.view.accessibility.AccessibilityManager
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -31,6 +33,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
@@ -56,6 +59,8 @@ class MainActivity : AppCompatActivity() {
     // 首页
     private lateinit var tvRunning: TextView
     private lateinit var tvStatusDetail: TextView
+    private lateinit var tvShizukuStatus: TextView
+    private lateinit var tvAccessibilityStatus: TextView
     private lateinit var tvProfileConfig: TextView
     private lateinit var tvAudioOutput: TextView
     private lateinit var btnRotation: Button
@@ -65,6 +70,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvSecureState: TextView
     private lateinit var tvNotificationState: TextView
     private lateinit var tvBatteryState: TextView
+    private lateinit var tvAccessibilityState: TextView
     private lateinit var swMonitor: SwitchCompat
     private lateinit var swBoot: SwitchCompat
     private lateinit var swDimInternal: SwitchCompat
@@ -173,6 +179,8 @@ class MainActivity : AppCompatActivity() {
 
         tvRunning = findViewById(R.id.tvRunning)
         tvStatusDetail = findViewById(R.id.tvStatusDetail)
+        tvShizukuStatus = findViewById(R.id.tvShizukuStatus)
+        tvAccessibilityStatus = findViewById(R.id.tvAccessibilityStatus)
         tvProfileConfig = findViewById(R.id.tvProfileConfig)
         tvAudioOutput = findViewById(R.id.tvAudioOutput)
         btnRotation = findViewById(R.id.btnRotation)
@@ -181,6 +189,7 @@ class MainActivity : AppCompatActivity() {
         tvSecureState = findViewById(R.id.tvSecureState)
         tvNotificationState = findViewById(R.id.tvNotificationState)
         tvBatteryState = findViewById(R.id.tvBatteryState)
+        tvAccessibilityState = findViewById(R.id.tvAccessibilityState)
         swMonitor = findViewById(R.id.swMonitor)
         swBoot = findViewById(R.id.swBoot)
         swDimInternal = findViewById(R.id.swDimInternal)
@@ -482,6 +491,13 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSecure).setOnClickListener { grantSecureSettings() }
         findViewById<Button>(R.id.btnNotification).setOnClickListener { requestNotificationPermissionIfNeeded(true) }
         findViewById<Button>(R.id.btnBattery).setOnClickListener { fixBatteryOptimization() }
+        findViewById<Button>(R.id.btnAccessibility).setOnClickListener {
+            try {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            } catch (_: Throwable) {
+                toast("无法打开无障碍设置")
+            }
+        }
         findViewById<Button>(R.id.btnClear).setOnClickListener { AppLog.clear() }
 
         swMonitor.setOnCheckedChangeListener { _, checked ->
@@ -564,6 +580,14 @@ class MainActivity : AppCompatActivity() {
                         tvStatusDetail.text = text
                     }
                 }
+                // Refresh the status card periodically so Shizuku/accessibility changes show up
+                // without the user pressing the refresh button.
+                launch {
+                    while (true) {
+                        delay(5_000)
+                        if (currentPage == 0) refreshSnapshot()
+                    }
+                }
             }
         }
     }
@@ -581,6 +605,17 @@ class MainActivity : AppCompatActivity() {
             it.flags and Display.FLAG_PRESENTATION != 0 && it.displayId != Display.DEFAULT_DISPLAY
         }
 
+        val binderAlive = Shell.isBinderAlive()
+        val shizukuReady = Shell.hasPermission()
+        tvShizukuStatus.text = when {
+            !binderAlive -> "Shizuku：未运行（需要启动 Shizuku）"
+            !shizukuReady -> "Shizuku：未授权（需要授权）"
+            else -> "Shizuku：已连接"
+        }
+        tvShizukuStatus.setTextColor(
+            ContextCompat.getColor(this, if (shizukuReady) R.color.ok else R.color.bad)
+        )
+
         // Mirror the per-screen configuration from the config page so it can be checked at a glance.
         val profile = external?.let { prefs.loadScreenProfile(ScreenIdentity.key(it)) }
         tvProfileConfig.text = if (external == null || profile == null) {
@@ -596,14 +631,33 @@ class MainActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            val rotation = withContext(Dispatchers.IO) {
-                if (Shell.hasPermission()) DeviceCtrl.currentRotation() else null
+            val (rotation, accessibilityEnabled, accessibilityConnected) = withContext(Dispatchers.IO) {
+                val permission = Shell.hasPermission()
+                val r = if (permission) DeviceCtrl.currentRotation() else null
+                // Reading through shell is reliable from the very first frame; the
+                // AccessibilityManager list can still be empty while the service binds.
+                val enabled = if (permission) {
+                    DeviceCtrl.isOverlayAccessibilityEnabled()
+                } else {
+                    isOverlayServiceEnabled()
+                }
+                Triple(r, enabled, OverlayRotationService.isConnected())
             }
             btnRotation.text = when (rotation) {
                 1, 3 -> "转竖屏"
                 0, 2 -> "转横屏"
                 else -> "切换方向"
             }
+            val accessibilityOk = accessibilityEnabled == true && accessibilityConnected
+            tvAccessibilityStatus.text = when {
+                accessibilityEnabled == null -> "无障碍：未知"
+                accessibilityOk -> "无障碍：已连接"
+                accessibilityEnabled -> "无障碍：已启用（未连接）"
+                else -> "无障碍：未开启（需要在设置中开启）"
+            }
+            tvAccessibilityStatus.setTextColor(
+                ContextCompat.getColor(this@MainActivity, if (accessibilityOk) R.color.ok else R.color.bad)
+            )
         }
 
         lifecycleScope.launch {
@@ -638,6 +692,29 @@ class MainActivity : AppCompatActivity() {
         val ignoringBattery = isIgnoringBatteryOptimizations()
         tvBatteryState.text = "电池优化：" + if (ignoringBattery) "已加入白名单" else "未加入"
         colorize(tvBatteryState, ignoringBattery)
+
+        lifecycleScope.launch {
+            val accessibilityEnabled = withContext(Dispatchers.IO) {
+                if (Shell.hasPermission()) {
+                    DeviceCtrl.isOverlayAccessibilityEnabled() ?: isOverlayServiceEnabled()
+                } else {
+                    isOverlayServiceEnabled()
+                }
+            }
+            tvAccessibilityState.text = "无障碍服务：" + if (accessibilityEnabled) "已开启" else "未开启"
+            colorize(tvAccessibilityState, accessibilityEnabled)
+        }
+    }
+
+    /**
+     * Whether the overlay accessibility service is enabled. Uses AccessibilityManager because
+     * reading Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES requires a system permission.
+     */
+    private fun isOverlayServiceEnabled(): Boolean {
+        if (OverlayRotationService.isConnected()) return true
+        val manager = getSystemService(AccessibilityManager::class.java) ?: return false
+        return manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any { it.id.startsWith("$packageName/") }
     }
 
     private fun colorize(view: TextView, good: Boolean) {

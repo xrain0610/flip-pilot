@@ -8,6 +8,8 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Forces the display orientation by attaching a 1x1 transparent accessibility overlay whose
@@ -22,6 +24,11 @@ class OverlayRotationService : AccessibilityService() {
     companion object {
         @Volatile
         private var instance: OverlayRotationService? = null
+
+        private val _connected = MutableStateFlow(false)
+
+        /** True while the accessibility service is bound; the UI observes this to refresh. */
+        val connected: StateFlow<Boolean> = _connected
 
         fun isConnected(): Boolean = instance != null
 
@@ -70,6 +77,7 @@ class OverlayRotationService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        _connected.value = true
         serviceInfo = serviceInfo?.apply {
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             eventTypes = 0
@@ -81,6 +89,8 @@ class OverlayRotationService : AccessibilityService() {
             applyLandscape(true)
             DeviceCtrl.setSensorRotation(false)
         }
+        // Refresh the foreground notification so it shows the accessibility status.
+        DisplayMonitorService.refreshNotification(this)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
@@ -89,6 +99,7 @@ class OverlayRotationService : AccessibilityService() {
 
     override fun onDestroy() {
         instance = null
+        _connected.value = false
         removeOverlay()
         super.onDestroy()
     }

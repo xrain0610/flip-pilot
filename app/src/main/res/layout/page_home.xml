@@ -87,6 +87,24 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/tvShizukuStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Shizuku：未知"
+                android:textColor="#455A64"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tvAccessibilityStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="无障碍：未知"
+                android:textColor="#455A64"
+                android:textSize="13sp" />
+
+            <TextView
                 android:id="@+id/tvRunning"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

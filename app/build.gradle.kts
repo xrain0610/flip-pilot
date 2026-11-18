@@ -26,8 +26,8 @@ android {
         applicationId = "com.flip5.dockpilot"
         minSdk = 31
         targetSdk = 35
-        versionCode = 2611002
-        versionName = "26.11.2"
+        versionCode = 2611004
+        versionName = "26.11.4"
     }
 
     signingConfigs {

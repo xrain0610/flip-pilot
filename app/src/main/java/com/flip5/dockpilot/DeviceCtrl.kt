@@ -112,6 +112,13 @@ object DeviceCtrl {
         return r.stdout.trim()
     }
 
+    /** Whether FlipPilot's overlay service is in the system's enabled accessibility list. */
+    fun isOverlayAccessibilityEnabled(): Boolean? {
+        val r = Shell.exec("settings get secure enabled_accessibility_services")
+        if (!r.ok) return null
+        return r.stdout.contains("OverlayRotationService")
+    }
+
     // ---- internal display brightness -------------------------------------------------
 
     fun internalBrightness(): Float? {
