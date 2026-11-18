@@ -45,19 +45,40 @@ object DeviceCtrl {
         return r
     }
 
-    /** Lock landscape via settings (the only reliable route on this device). */
-    fun lockLandscape(rotation: Int): Shell.Result {
+    /** Current user rotation from settings: 0/2 = portrait, 1/3 = landscape. */
+    fun currentRotation(): Int? {
+        val result = Shell.exec("settings get system user_rotation")
+        if (!result.ok) return null
+        return result.stdout.trim().toIntOrNull()
+    }
+
+    /** Locks the screen to a fixed rotation (0 = portrait, 1/3 = landscape). */
+    fun setRotation(rotation: Int): Shell.Result {
         val r = Shell.exec(
             "settings put system accelerometer_rotation 0; " +
                 "settings put system user_rotation $rotation"
         )
         if (r.ok) {
-            AppLog.info("已锁定横屏 rotation=$rotation")
+            AppLog.info("已设置屏幕方向 rotation=$rotation")
         } else {
-            AppLog.error("锁定横屏失败: ${r.text}")
+            AppLog.error("设置屏幕方向失败: ${r.text}")
         }
         return r
     }
+
+    /** Enables/disables the accelerometer so the device stops reacting to physical rotation. */
+    fun setSensorRotation(enabled: Boolean): Shell.Result {
+        val r = Shell.exec("settings put system accelerometer_rotation ${if (enabled) 1 else 0}")
+        if (r.ok) {
+            AppLog.info("传感器自动旋转: ${if (enabled) "开启" else "忽略"}")
+        } else {
+            AppLog.warn("设置传感器自动旋转失败: ${r.text}")
+        }
+        return r
+    }
+
+    /** Lock landscape via settings (the only reliable route on this device). */
+    fun lockLandscape(rotation: Int): Shell.Result = setRotation(rotation)
 
     fun restoreAutoRotate(): Shell.Result =
         Shell.exec("settings put system accelerometer_rotation 1")
@@ -83,4 +104,22 @@ object DeviceCtrl {
         }
         return r
     }
+
+    /** Raw `policy_control` value; null when it cannot be read. */
+    fun policyControl(): String? {
+        val r = Shell.exec("settings get global policy_control")
+        if (!r.ok) return null
+        return r.stdout.trim()
+    }
+
+    // ---- internal display brightness -------------------------------------------------
+
+    fun internalBrightness(): Float? {
+        val r = Shell.exec("cmd display get-brightness --id 0")
+        if (!r.ok) return null
+        return r.stdout.trim().toFloatOrNull()
+    }
+
+    fun setInternalBrightness(value: Float): Shell.Result =
+        Shell.exec("cmd display set-brightness $value --id 0")
 }

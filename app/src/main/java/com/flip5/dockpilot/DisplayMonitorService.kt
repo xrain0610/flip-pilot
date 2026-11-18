@@ -240,18 +240,42 @@ class DisplayMonitorService : Service() {
                     val lock = profile?.lockLandscape ?: prefs.lockLandscape
                     val unlockKeyguard = profile?.unlockKeyguard ?: prefs.disableKeyguard
                     val immersive = profile?.immersive ?: prefs.immersiveMode
+                    val forceLandscape = profile?.forceLandscape ?: false
                     if (unlockKeyguard) {
                         DeviceCtrl.unlockKeyguard()
                     }
-                    if (lock) {
-                        DeviceCtrl.lockLandscape(profile?.rotation ?: prefs.landscapeRotation)
+                    // The overlay owns the orientation when this panel asks for it; otherwise fall
+                    // back to the system rotation lock (or the accelerometer).
+                    if (forceLandscape) {
+                        if (OverlayRotationService.ensureEnabled()) {
+                            OverlayRotationService.setForcedLandscape(true)
+                            DeviceCtrl.setSensorRotation(false)
+                            AppLog.info("强制横屏: 开启（无障碍覆盖层）")
+                        } else {
+                            AppLog.warn("无障碍服务未连接，强制横屏未生效")
+                        }
+                    } else {
+                        OverlayRotationService.setForcedLandscape(false)
+                        if (lock) {
+                            DeviceCtrl.lockLandscape(profile?.rotation ?: prefs.landscapeRotation)
+                        } else {
+                            DeviceCtrl.setSensorRotation(true)
+                        }
                     }
                     if (externalDisplay != null && profile != null) {
                         AppLog.info("应用屏幕配置 ${profile.label}")
-                        ScreenApplier.apply(externalDisplay, profile)
+                        ScreenApplier.apply(this@DisplayMonitorService, externalDisplay, profile)
                     }
-                    if (immersive) {
-                        DeviceCtrl.setImmersive(true)
+                    // Always publish the value: turning the switch off must also clear a previously
+                    // applied `policy_control`, otherwise the status bar stays hidden forever.
+                    DeviceCtrl.setImmersive(immersive)
+                    if (prefs.dimInternal) {
+                        val current = DeviceCtrl.internalBrightness()
+                        if (current != null && current > 0f) {
+                            prefs.savedInternalBrightness = current
+                        }
+                        DeviceCtrl.setInternalBrightness(0f)
+                        AppLog.info("内屏已关闭（亮度 0）")
                     }
                     // Some hot-plug timings leave the panel in OFF even though the fold state is
                     // already 3. Toggling once more is the only thing that reliably re-inits it.
@@ -272,9 +296,12 @@ class DisplayMonitorService : Service() {
                     if (prefs.lockLandscape) {
                         DeviceCtrl.restoreAutoRotate()
                     }
-                    if (prefs.immersiveMode) {
-                        DeviceCtrl.setImmersive(false)
+                    if (prefs.dimInternal) {
+                        DeviceCtrl.setInternalBrightness(prefs.savedInternalBrightness)
+                        AppLog.info("内屏亮度恢复 ${prefs.savedInternalBrightness}")
                     }
+                    // Cover screen always restores the system bars.
+                    DeviceCtrl.setImmersive(false)
                     updateStatus("已合盖 · 外屏")
                 }
             }

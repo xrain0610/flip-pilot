@@ -1,40 +1,52 @@
 package com.flip5.dockpilot
 
+import android.app.UiModeManager
+import android.content.Context
+import android.content.res.Configuration
 import android.view.Display
 
 /**
- * Applies a [ScreenProfile] to a display.
+ * Applies a [ScreenProfile] using the same strategy as SecondScreen:
  *
- * Measured on this device:
- *  - `wm density <dpi> -d <id>` works (`Override density` shows up on read back).
- *  - `wm size <WxH> -d <id>` is ignored for the external display.
- *  - `cmd display set-user-preferred-display-mode` is accepted but the ROM keeps its own mode.
+ *  - Desktop mode (DeX): `wm size WxH -d <displayId>` — the external display has its own WM state.
+ *  - Mirror mode: `wm size WxH` — global override on display 0, which the external panel mirrors.
  *
- * So mode changes are attempted and reported honestly; density is the part that actually sticks.
+ * Setting a mode by display id (`set-user-preferred-display-mode`, `wm size -d` on the HDMI
+ * display) is ignored by this ROM, so it is not used here.
  */
 object ScreenApplier {
 
-    fun modeAndDensityCommands(display: Display, profile: ScreenProfile): List<String> {
+    fun isDesktopMode(context: Context): Boolean {
+        val uiModeManager = context.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+            ?: return false
+        return uiModeManager.currentModeType == Configuration.UI_MODE_TYPE_DESK
+    }
+
+    /** `-d <id>` only in desktop mode; mirror mode uses the global override. */
+    private fun displaySuffix(context: Context, display: Display): String =
+        if (isDesktopMode(context)) " -d ${display.displayId}" else ""
+
+    fun commands(context: Context, display: Display, profile: ScreenProfile): List<String> {
+        val suffix = displaySuffix(context, display)
         val commands = mutableListOf<String>()
-        if (profile.width > 0 && profile.height > 0 && profile.refreshRate > 0f) {
-            commands += "cmd display set-user-preferred-display-mode " +
-                "${profile.width} ${profile.height} ${profile.refreshRate} ${display.displayId}"
+        if (profile.width > 0 && profile.height > 0) {
+            commands += "wm size ${profile.width}x${profile.height}$suffix"
         }
         if (profile.density > 0) {
-            commands += "wm density ${profile.density} -d ${display.displayId}"
+            commands += "wm density ${profile.density}$suffix"
         }
         return commands
     }
 
-    fun resetCommands(display: Display): List<String> = listOf(
-        "cmd display clear-user-preferred-display-mode ${display.displayId}",
-        "wm density reset -d ${display.displayId}",
-    )
+    fun resetCommands(context: Context, display: Display): List<String> {
+        val suffix = displaySuffix(context, display)
+        return listOf("wm size reset$suffix", "wm density reset$suffix")
+    }
 
     /** Runs the profile's commands. Returns true when every command reported success. */
-    fun apply(display: Display, profile: ScreenProfile): Boolean {
+    fun apply(context: Context, display: Display, profile: ScreenProfile): Boolean {
         var allOk = true
-        for (command in modeAndDensityCommands(display, profile)) {
+        for (command in commands(context, display, profile)) {
             val result = Shell.exec(command)
             if (result.ok) {
                 AppLog.info("屏幕配置: $command")
@@ -46,16 +58,16 @@ object ScreenApplier {
         return allOk
     }
 
-    fun reset(display: Display): Boolean {
+    fun reset(context: Context, display: Display): Boolean {
         var allOk = true
-        for (command in resetCommands(display)) {
+        for (command in resetCommands(context, display)) {
             val result = Shell.exec(command)
             if (!result.ok) {
                 allOk = false
                 AppLog.warn("屏幕配置重置失败: $command -> ${result.text}")
             }
         }
-        if (allOk) AppLog.info("已重置屏幕 ${display.name} 的模式与密度")
+        if (allOk) AppLog.info("已重置分辨率与密度（${display.name}）")
         return allOk
     }
 }

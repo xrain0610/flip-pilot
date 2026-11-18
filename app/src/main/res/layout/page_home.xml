@@ -58,6 +58,15 @@
                 android:layout_weight="1"
                 android:text="刷新"
                 android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnRotation"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_marginLeft="8dp"
+                android:layout_weight="1"
+                android:text="转竖屏"
+                android:textSize="13sp" />
         </LinearLayout>
 
         <!-- 运行状态 -->
@@ -95,21 +104,13 @@
                 android:textSize="13sp" />
 
             <TextView
-                android:id="@+id/tvDeviceState"
+                android:id="@+id/tvProfileConfig"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="折叠状态：未知"
-                android:textColor="#455A64"
-                android:textSize="13sp" />
-
-            <TextView
-                android:id="@+id/tvDisplayInfo"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="外接屏：无"
-                android:textColor="#455A64"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="3dp"
+                android:text="配置：暂无"
+                android:textColor="#37474F"
                 android:textSize="13sp" />
 
             <TextView

@@ -14,6 +14,7 @@ import android.view.Display
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -22,6 +23,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -33,6 +36,10 @@ import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 
 class MainActivity : AppCompatActivity() {
+
+    private companion object {
+        const val STATE_PAGE = "current_page"
+    }
 
     private lateinit var prefs: Prefs
     private val logAdapter = LogAdapter()
@@ -49,9 +56,9 @@ class MainActivity : AppCompatActivity() {
     // 首页
     private lateinit var tvRunning: TextView
     private lateinit var tvStatusDetail: TextView
-    private lateinit var tvDeviceState: TextView
-    private lateinit var tvDisplayInfo: TextView
+    private lateinit var tvProfileConfig: TextView
     private lateinit var tvAudioOutput: TextView
+    private lateinit var btnRotation: Button
 
     // 设置页
     private lateinit var tvShizukuState: TextView
@@ -60,23 +67,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvBatteryState: TextView
     private lateinit var swMonitor: SwitchCompat
     private lateinit var swBoot: SwitchCompat
+    private lateinit var swDimInternal: SwitchCompat
+    private lateinit var swForceLandscape: SwitchCompat
     private lateinit var rvLogs: RecyclerView
 
     // 配置页
     private lateinit var tvScreenLabel: TextView
     private lateinit var tvScreenId: TextView
     private lateinit var tvAudioState: TextView
-    private lateinit var spExternalMode: Spinner
+    private lateinit var etWidth: EditText
+    private lateinit var etHeight: EditText
     private lateinit var spDensity: Spinner
     private lateinit var spRotation: Spinner
     private lateinit var spAudioOutput: Spinner
     private lateinit var swLockLandscape: SwitchCompat
     private lateinit var swUnlockKeyguard: SwitchCompat
     private lateinit var swImmersive: SwitchCompat
-    private var externalModes: List<Display.Mode> = emptyList()
     private var currentDisplay: Display? = null
     private val densityValues = listOf(0, 240, 320, 420, 480, 560, 640)
     private val densityLabels = listOf("不修改", "240", "320", "420", "480", "560", "640")
+    private val rotationValues = listOf(0, 1, 2, 3)
+    private val rotationLabels = listOf("0°（竖屏）", "90°", "180°（倒置）", "270°（横屏）")
 
     private val shizukuRequestCode = 1001
 
@@ -107,12 +118,14 @@ class MainActivity : AppCompatActivity() {
         prefs = Prefs(this)
         setContentView(R.layout.activity_main)
         bindViews()
+        applySystemBarInsets()
         setupNavigation()
         setupHomeActions()
         setupConfigPage()
         setupSettingsPage()
         collectState()
-        selectPage(0)
+        // wm size/density changes recreate the activity; keep the user on the same page.
+        selectPage(savedInstanceState?.getInt(STATE_PAGE, 0) ?: 0)
         refreshPermissionState()
 
         Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
@@ -123,6 +136,11 @@ class MainActivity : AppCompatActivity() {
             AppLog.info("监控已启用，重新拉起服务")
             DisplayMonitorService.start(this)
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt(STATE_PAGE, currentPage)
     }
 
     override fun onResume() {
@@ -155,9 +173,9 @@ class MainActivity : AppCompatActivity() {
 
         tvRunning = findViewById(R.id.tvRunning)
         tvStatusDetail = findViewById(R.id.tvStatusDetail)
-        tvDeviceState = findViewById(R.id.tvDeviceState)
-        tvDisplayInfo = findViewById(R.id.tvDisplayInfo)
+        tvProfileConfig = findViewById(R.id.tvProfileConfig)
         tvAudioOutput = findViewById(R.id.tvAudioOutput)
+        btnRotation = findViewById(R.id.btnRotation)
 
         tvShizukuState = findViewById(R.id.tvShizukuState)
         tvSecureState = findViewById(R.id.tvSecureState)
@@ -165,12 +183,15 @@ class MainActivity : AppCompatActivity() {
         tvBatteryState = findViewById(R.id.tvBatteryState)
         swMonitor = findViewById(R.id.swMonitor)
         swBoot = findViewById(R.id.swBoot)
+        swDimInternal = findViewById(R.id.swDimInternal)
+        swForceLandscape = findViewById(R.id.swForceLandscape)
         rvLogs = findViewById(R.id.rvLogs)
 
         tvScreenLabel = findViewById(R.id.tvScreenLabel)
         tvScreenId = findViewById(R.id.tvScreenId)
         tvAudioState = findViewById(R.id.tvAudioState)
-        spExternalMode = findViewById(R.id.spExternalMode)
+        etWidth = findViewById(R.id.etWidth)
+        etHeight = findViewById(R.id.etHeight)
         spDensity = findViewById(R.id.spDensity)
         spRotation = findViewById(R.id.spRotation)
         spAudioOutput = findViewById(R.id.spAudioOutput)
@@ -187,6 +208,21 @@ class MainActivity : AppCompatActivity() {
         navHome.setOnClickListener { selectPage(0) }
         navConfig.setOnClickListener { selectPage(1) }
         navSettings.setOnClickListener { selectPage(2) }
+    }
+
+    /**
+     * Keeps content clear of the navigation bar. No extra top padding: under the immersive policy
+     * the status bar is hidden, and adding a fixed top offset only produced a black band above the
+     * content on the external display.
+     */
+    private fun applySystemBarInsets() {
+        val root = findViewById<View>(R.id.rootLayout)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
     }
 
     private fun selectPage(index: Int) {
@@ -220,12 +256,30 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnExpand).setOnClickListener { manualState(DeviceCtrl.STATE_UNFOLDED) }
         findViewById<Button>(R.id.btnFold).setOnClickListener { manualState(DeviceCtrl.STATE_FOLDED) }
         findViewById<Button>(R.id.btnRefresh).setOnClickListener { refreshSnapshot() }
+        findViewById<Button>(R.id.btnRotation).setOnClickListener { toggleRotation() }
+    }
+
+    /** Flips between portrait and the configured landscape orientation. */
+    private fun toggleRotation() {
+        if (!Shell.hasPermission()) {
+            toast("需要 Shizuku 权限")
+            return
+        }
+        lifecycleScope.launch {
+            val current = withContext(Dispatchers.IO) { DeviceCtrl.currentRotation() }
+            val isLandscape = current == 1 || current == 3
+            val target = if (isLandscape) 0 else prefs.landscapeRotation.coerceAtLeast(1)
+            withContext(Dispatchers.IO) { DeviceCtrl.setRotation(target) }
+            AppLog.info(if (target == 0) "切换为竖屏" else "切换为横屏 rotation=$target")
+            toast(if (target == 0) "已切换竖屏" else "已切换横屏")
+            refreshSnapshot()
+        }
     }
 
     // ---- config page --------------------------------------------------------------
 
     private fun setupConfigPage() {
-        spRotation.adapter = spinnerAdapter(listOf("270°（避让在右）", "90°（避让在左）"))
+        spRotation.adapter = spinnerAdapter(rotationLabels)
         spDensity.adapter = spinnerAdapter(densityLabels)
         spAudioOutput.adapter = spinnerAdapter(listOf("外接屏", "手机扬声器"))
 
@@ -249,17 +303,19 @@ class MainActivity : AppCompatActivity() {
         if (external == null) {
             // Everything on this page is per external panel; nothing to configure without one.
             currentDisplay = null
-            externalModes = emptyList()
             tvScreenLabel.text = "未检测到外接屏"
             tvScreenId.text = "插上 HDMI 后再回来配置"
-            spExternalMode.adapter = spinnerAdapter(listOf("未检测到外接屏"))
-            spExternalMode.isEnabled = false
+            etWidth.setText("")
+            etHeight.setText("")
+            etWidth.isEnabled = false
+            etHeight.isEnabled = false
             spDensity.isEnabled = false
             spRotation.isEnabled = false
             spAudioOutput.isEnabled = false
             swLockLandscape.isEnabled = false
             swUnlockKeyguard.isEnabled = false
             swImmersive.isEnabled = false
+            swForceLandscape.isEnabled = false
             setProfileButtonsEnabled(false)
             return
         }
@@ -268,37 +324,35 @@ class MainActivity : AppCompatActivity() {
         val profile = prefs.loadScreenProfile(ScreenIdentity.key(external))
         tvScreenLabel.text = ScreenIdentity.label(external)
         tvScreenId.text = "指纹 ${ScreenIdentity.shortKey(external)} · displayId ${external.displayId}"
+        etWidth.isEnabled = true
+        etHeight.isEnabled = true
         spDensity.isEnabled = true
         spRotation.isEnabled = true
         spAudioOutput.isEnabled = true
         swLockLandscape.isEnabled = true
         swUnlockKeyguard.isEnabled = true
         swImmersive.isEnabled = true
+        swForceLandscape.isEnabled = true
         swLockLandscape.isChecked = profile?.lockLandscape ?: prefs.lockLandscape
         swUnlockKeyguard.isChecked = profile?.unlockKeyguard ?: prefs.disableKeyguard
         swImmersive.isChecked = profile?.immersive ?: prefs.immersiveMode
+        swForceLandscape.isChecked = profile?.forceLandscape ?: false
         setProfileButtonsEnabled(true)
 
-        externalModes = external.supportedModes.sortedWith(
-            compareByDescending<Display.Mode> { it.physicalWidth }.thenByDescending { it.refreshRate }
-        )
-        val labels = mutableListOf("不修改（保持系统选择）")
-        labels += externalModes.map {
-            "${it.physicalWidth}x${it.physicalHeight} @ ${it.refreshRate.toInt()}Hz（mode ${it.modeId}）"
+        // SecondScreen-style: mirror mode changes display 0 globally (wm size), so the resolution
+        // is entered manually. Empty means "leave the system resolution alone".
+        if (profile != null && profile.width > 0 && profile.height > 0) {
+            etWidth.setText(profile.width.toString())
+            etHeight.setText(profile.height.toString())
+        } else {
+            etWidth.setText("")
+            etHeight.setText("")
         }
-        spExternalMode.adapter = spinnerAdapter(labels)
-        spExternalMode.isEnabled = true
-        val savedIndex = externalModes.indexOfFirst {
-            profile != null &&
-                it.physicalWidth == profile.width &&
-                it.physicalHeight == profile.height &&
-                kotlin.math.abs(it.refreshRate - profile.refreshRate) < 0.5f
-        }
-        spExternalMode.setSelection(if (savedIndex >= 0) savedIndex + 1 else 0)
 
         val densityIndex = densityValues.indexOf(profile?.density ?: 0)
         spDensity.setSelection(if (densityIndex >= 0) densityIndex else 0)
-        spRotation.setSelection(if ((profile?.rotation ?: prefs.landscapeRotation) == 3) 0 else 1)
+        val rotationIndex = rotationValues.indexOf(profile?.rotation ?: prefs.landscapeRotation)
+        spRotation.setSelection(if (rotationIndex >= 0) rotationIndex else rotationValues.indexOf(3))
         spAudioOutput.setSelection(
             if ((profile?.audioOutput ?: ScreenProfile.AUDIO_SCREEN) == ScreenProfile.AUDIO_PHONE) 1 else 0
         )
@@ -316,30 +370,43 @@ class MainActivity : AppCompatActivity() {
         val profile = prefs.loadScreenProfile(key) ?: ScreenProfile(key)
         profile.label = ScreenIdentity.label(display)
 
-        val modeIndex = spExternalMode.selectedItemPosition
-        if (spExternalMode.isEnabled && modeIndex > 0) {
-            val mode = externalModes.getOrNull(modeIndex - 1)
-            if (mode != null) {
-                profile.width = mode.physicalWidth
-                profile.height = mode.physicalHeight
-                profile.refreshRate = mode.refreshRate
+        val widthText = etWidth.text.toString().trim()
+        val heightText = etHeight.text.toString().trim()
+        if (widthText.isNotEmpty() || heightText.isNotEmpty()) {
+            val width = widthText.toIntOrNull()
+            val height = heightText.toIntOrNull()
+            if (width == null || height == null) {
+                toast("宽和高都要填写数字，或两个都留空")
+                return
             }
+            if (width < 320 || height < 240 || width > 7680 || height > 7680) {
+                toast("宽高范围 320~7680，请检查输入")
+                return
+            }
+            profile.width = width
+            profile.height = height
         } else {
             profile.width = 0
             profile.height = 0
-            profile.refreshRate = 0f
         }
+        profile.refreshRate = 0f
         profile.density = densityValues.getOrNull(spDensity.selectedItemPosition) ?: 0
-        profile.rotation = if (spRotation.selectedItemPosition == 0) 3 else 1
+        profile.rotation = rotationValues.getOrNull(spRotation.selectedItemPosition)
+            ?: prefs.landscapeRotation
         profile.audioOutput =
             if (spAudioOutput.selectedItemPosition == 1) ScreenProfile.AUDIO_PHONE else ScreenProfile.AUDIO_SCREEN
         profile.lockLandscape = swLockLandscape.isChecked
         profile.unlockKeyguard = swUnlockKeyguard.isChecked
         profile.immersive = swImmersive.isChecked
+        profile.forceLandscape = swForceLandscape.isChecked
 
         prefs.saveScreenProfile(profile)
         // Keep the global defaults in step: they are used when no profile exists (e.g. unplugging).
-        prefs.landscapeRotation = profile.rotation
+        // landscapeRotation is only the fallback used by the home "rotate" toggle, so keep it
+        // pointing at a real landscape value.
+        if (profile.rotation == 1 || profile.rotation == 3) {
+            prefs.landscapeRotation = profile.rotation
+        }
         prefs.lockLandscape = profile.lockLandscape
         prefs.disableKeyguard = profile.unlockKeyguard
         prefs.immersiveMode = profile.immersive
@@ -348,7 +415,7 @@ class MainActivity : AppCompatActivity() {
                 "@${profile.refreshRate.toInt()}Hz dpi=${profile.density} " +
                 "rotation=${profile.rotation} audio=${profile.audioOutput} " +
                 "lock=${profile.lockLandscape} unlockKeyguard=${profile.unlockKeyguard} " +
-                "immersive=${profile.immersive}"
+                "immersive=${profile.immersive} forceLandscape=${profile.forceLandscape}"
         )
         if (!apply) {
             toast("已保存该屏幕配置")
@@ -360,10 +427,27 @@ class MainActivity : AppCompatActivity() {
         }
         lifecycleScope.launch {
             val ok = withContext(Dispatchers.IO) {
-                val result = ScreenApplier.apply(display, profile)
+                val result = ScreenApplier.apply(this@MainActivity, display, profile)
                 if (profile.unlockKeyguard) DeviceCtrl.unlockKeyguard()
-                if (profile.lockLandscape) DeviceCtrl.lockLandscape(profile.rotation)
-                if (profile.immersive) DeviceCtrl.setImmersive(true)
+                // The accessibility overlay owns the orientation when enabled; it also ignores the
+                // accelerometer so rotating the phone cannot pop the system rotate hint.
+                if (profile.forceLandscape) {
+                    if (OverlayRotationService.ensureEnabled()) {
+                        OverlayRotationService.setForcedLandscape(true)
+                        DeviceCtrl.setSensorRotation(false)
+                    } else {
+                        AppLog.warn("无障碍服务未连接，强制横屏未生效")
+                    }
+                } else {
+                    OverlayRotationService.setForcedLandscape(false)
+                    if (profile.lockLandscape) {
+                        DeviceCtrl.lockLandscape(profile.rotation)
+                    } else {
+                        DeviceCtrl.setSensorRotation(true)
+                    }
+                }
+                // Always publish the switch value so turning it off clears the policy right away.
+                DeviceCtrl.setImmersive(profile.immersive)
                 result
             }
             if (profile.audioOutput == ScreenProfile.AUDIO_PHONE) {
@@ -385,7 +469,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         lifecycleScope.launch {
-            withContext(Dispatchers.IO) { ScreenApplier.reset(display) }
+            withContext(Dispatchers.IO) { ScreenApplier.reset(this@MainActivity, display) }
             toast("已重置该屏幕的模式与密度")
             refreshScreenConfig()
         }
@@ -417,6 +501,12 @@ class MainActivity : AppCompatActivity() {
         swBoot.setOnCheckedChangeListener { _, checked ->
             prefs.bootEnabled = checked
             AppLog.info("开机自动启动: $checked")
+        }
+
+        swDimInternal.isChecked = prefs.dimInternal
+        swDimInternal.setOnCheckedChangeListener { _, checked ->
+            prefs.dimInternal = checked
+            AppLog.info("接外接屏时关闭内屏: $checked")
         }
     }
 
@@ -490,21 +580,29 @@ class MainActivity : AppCompatActivity() {
         val external = displayManager.displays.firstOrNull {
             it.flags and Display.FLAG_PRESENTATION != 0 && it.displayId != Display.DEFAULT_DISPLAY
         }
-        tvDisplayInfo.text = if (external == null) {
-            "外接屏：无"
+
+        // Mirror the per-screen configuration from the config page so it can be checked at a glance.
+        val profile = external?.let { prefs.loadScreenProfile(ScreenIdentity.key(it)) }
+        tvProfileConfig.text = if (external == null || profile == null) {
+            "配置：暂无（未检测到外接屏）"
         } else {
-            DisplayInfoText.detailed(external)
+            val resolution = if (profile.width > 0) "${profile.width}x${profile.height}" else "不修改"
+            val density = if (profile.density > 0) profile.density.toString() else "不修改"
+            buildString {
+                append("分辨率：$resolution · DPI：$density · 方向：${profile.rotation * 90}°\n")
+                append("锁定方向：${onOff(profile.lockLandscape)} · 解除锁屏：${onOff(profile.unlockKeyguard)}\n")
+                append("沉浸全屏：${onOff(profile.immersive)} · 强制横屏：${onOff(profile.forceLandscape)}")
+            }
         }
 
         lifecycleScope.launch {
-            val state = withContext(Dispatchers.IO) {
-                if (Shell.hasPermission()) DeviceCtrl.queryState() else null
+            val rotation = withContext(Dispatchers.IO) {
+                if (Shell.hasPermission()) DeviceCtrl.currentRotation() else null
             }
-            tvDeviceState.text = when (state) {
-                DeviceCtrl.STATE_UNFOLDED -> "折叠状态：展开 (3)"
-                DeviceCtrl.STATE_FOLDED -> "折叠状态：合盖 (0)"
-                null -> "折叠状态：未知（需要 Shizuku 权限）"
-                else -> "折叠状态：$state"
+            btnRotation.text = when (rotation) {
+                1, 3 -> "转竖屏"
+                0, 2 -> "转横屏"
+                else -> "切换方向"
             }
         }
 
@@ -700,12 +798,30 @@ class MainActivity : AppCompatActivity() {
             if (result.ok) {
                 prefs.lastAppliedState = target
                 withContext(Dispatchers.IO) {
+                    val profile = currentDisplay?.let { prefs.loadScreenProfile(ScreenIdentity.key(it)) }
+                    val immersive = profile?.immersive ?: prefs.immersiveMode
                     if (target == DeviceCtrl.STATE_UNFOLDED) {
                         DeviceCtrl.wakeUp()
                         if (prefs.disableKeyguard) DeviceCtrl.unlockKeyguard()
-                        if (prefs.lockLandscape) DeviceCtrl.lockLandscape(prefs.landscapeRotation)
+                        // The overlay owns the orientation while it is active.
+                        if (prefs.lockLandscape && !prefs.forceLandscape) {
+                            DeviceCtrl.lockLandscape(prefs.landscapeRotation)
+                        }
+                        // Always publish the value so switching it off clears an existing policy.
+                        DeviceCtrl.setImmersive(immersive)
+                        if (prefs.dimInternal) {
+                            val current = DeviceCtrl.internalBrightness()
+                            if (current != null && current > 0f) {
+                                prefs.savedInternalBrightness = current
+                            }
+                            DeviceCtrl.setInternalBrightness(0f)
+                        }
                     } else {
                         if (prefs.lockLandscape) DeviceCtrl.restoreAutoRotate()
+                        DeviceCtrl.setImmersive(false)
+                        if (prefs.dimInternal) {
+                            DeviceCtrl.setInternalBrightness(prefs.savedInternalBrightness)
+                        }
                     }
                 }
             }
@@ -721,4 +837,6 @@ class MainActivity : AppCompatActivity() {
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
+
+    private fun onOff(value: Boolean): String = if (value) "开" else "关"
 }

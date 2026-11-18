@@ -49,6 +49,16 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_IMMERSIVE, true)
         set(value) = sp.edit().putBoolean(KEY_IMMERSIVE, value).apply()
 
+    /** Turn the internal panel off (brightness 0) while an external display is active. */
+    var dimInternal: Boolean
+        get() = sp.getBoolean(KEY_DIM_INTERNAL, false)
+        set(value) = sp.edit().putBoolean(KEY_DIM_INTERNAL, value).apply()
+
+    /** Internal brightness captured before dimming, restored when the external display goes away. */
+    var savedInternalBrightness: Float
+        get() = sp.getFloat(KEY_INTERNAL_BRIGHTNESS, 1.0f)
+        set(value) = sp.edit().putFloat(KEY_INTERNAL_BRIGHTNESS, value).apply()
+
     /** Per-panel configuration, keyed by [ScreenIdentity.key]. */
     fun loadScreenProfile(key: String): ScreenProfile? {
         val raw = sp.getString(profileKey(key), null) ?: return null
@@ -67,6 +77,11 @@ class Prefs(context: Context) {
         sp.edit().remove(profileKey(key)).apply()
     }
 
+    /** Forces every application to landscape through the accessibility overlay. */
+    var forceLandscape: Boolean
+        get() = sp.getBoolean(KEY_FORCE_LANDSCAPE, false)
+        set(value) = sp.edit().putBoolean(KEY_FORCE_LANDSCAPE, value).apply()
+
     private fun profileKey(key: String): String =
         "screen_profile_" + key.hashCode().toUInt().toString(16)
 
@@ -80,5 +95,8 @@ class Prefs(context: Context) {
         const val KEY_DISPLAY_ID = "last_display_id"
         const val KEY_DISABLE_KEYGUARD = "disable_keyguard"
         const val KEY_IMMERSIVE = "immersive"
+        const val KEY_FORCE_LANDSCAPE = "force_landscape"
+        const val KEY_DIM_INTERNAL = "dim_internal"
+        const val KEY_INTERNAL_BRIGHTNESS = "internal_brightness"
     }
 }

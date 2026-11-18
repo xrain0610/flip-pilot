@@ -21,6 +21,8 @@ data class ScreenProfile(
     var lockLandscape: Boolean = true,
     var unlockKeyguard: Boolean = true,
     var immersive: Boolean = true,
+    /** Force every app to landscape through the accessibility overlay while this panel is active. */
+    var forceLandscape: Boolean = false,
 ) {
 
     fun toJson(): JSONObject = JSONObject().apply {
@@ -35,6 +37,7 @@ data class ScreenProfile(
         put("lockLandscape", lockLandscape)
         put("unlockKeyguard", unlockKeyguard)
         put("immersive", immersive)
+        put("forceLandscape", forceLandscape)
     }
 
     companion object {
@@ -53,6 +56,7 @@ data class ScreenProfile(
             lockLandscape = json.optBoolean("lockLandscape", true),
             unlockKeyguard = json.optBoolean("unlockKeyguard", true),
             immersive = json.optBoolean("immersive", true),
+            forceLandscape = json.optBoolean("forceLandscape", false),
         )
     }
 }

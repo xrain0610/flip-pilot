@@ -100,20 +100,68 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="分辨率 / 刷新率"
+                android:text="分辨率（宽 × 高，留空表示不修改）"
                 android:textColor="#455A64"
                 android:textSize="13sp" />
 
-            <Spinner
-                android:id="@+id/spExternalMode"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/etWidth"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_input"
+                    android:hint="1920"
+                    android:imeOptions="actionNext"
+                    android:inputType="number"
+                    android:maxLength="4"
+                    android:padding="10dp"
+                    android:textColor="#263238"
+                    android:textColorHint="#90A4AE"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="10dp"
+                    android:layout_marginRight="10dp"
+                    android:text="×"
+                    android:textColor="#455A64"
+                    android:textSize="16sp" />
+
+                <EditText
+                    android:id="@+id/etHeight"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_input"
+                    android:hint="1080"
+                    android:imeOptions="actionDone"
+                    android:inputType="number"
+                    android:maxLength="4"
+                    android:padding="10dp"
+                    android:textColor="#263238"
+                    android:textColorHint="#90A4AE"
+                    android:textSize="15sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="10dp"
+                android:background="#E0E0E0" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="DPI（density）"
+                android:layout_marginTop="10dp"
+                android:text="DPI"
                 android:textColor="#455A64"
                 android:textSize="13sp" />
 
@@ -122,10 +170,16 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="10dp"
+                android:background="#E0E0E0" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="10dp"
                 android:text="屏幕方向"
                 android:textColor="#455A64"
                 android:textSize="13sp" />
@@ -135,10 +189,16 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="10dp"
+                android:background="#E0E0E0" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="10dp"
                 android:text="音频输出"
                 android:textColor="#455A64"
                 android:textSize="13sp" />
@@ -148,30 +208,80 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="10dp"
+                android:background="#E0E0E0" />
+
             <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/swLockLandscape"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="展开后锁定横屏"
+                android:layout_marginTop="10dp"
+                android:minHeight="52dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:text="展开后锁定屏幕方向"
                 android:textColor="#263238"
                 android:textSize="14sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0" />
 
             <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/swUnlockKeyguard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="展开后解除锁屏（锁屏会强制竖屏）"
+                android:layout_marginTop="10dp"
+                android:minHeight="52dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:text="展开后解除锁屏"
                 android:textColor="#263238"
                 android:textSize="14sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0" />
 
             <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/swImmersive"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:minHeight="52dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
                 android:text="展开后沉浸全屏"
                 android:textColor="#263238"
                 android:textSize="14sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/swForceLandscape"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:minHeight="52dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:text="强制所有应用横屏"
+                android:textColor="#263238"
+                android:textSize="14sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="10dp"
+                android:background="#E0E0E0" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -210,7 +320,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:text="提示：这台 ROM 会忽略外接屏的模式切换，DPI 是真正生效的；分辨率改不动属于系统限制。"
+                android:text="分辨率走 wm size（非 DeX 为全局，DeX 带 -d），DPI 走 wm density；刷新率由系统策略控制，App 无法设置。"
                 android:textColor="#90A4AE"
                 android:textSize="11sp" />
         </LinearLayout>

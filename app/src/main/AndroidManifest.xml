@@ -27,6 +27,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".FrameRateProbeActivity"
+            android:exported="false"
+            android:theme="@style/Theme.DockPilot" />
+
         <service
             android:name=".DisplayMonitorService"
             android:exported="false"
@@ -45,6 +50,19 @@
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <service
+            android:name=".OverlayRotationService"
+            android:exported="true"
+            android:label="@string/service_rotation_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_rotation" />
+        </service>
 
         <provider
             android:name="rikka.shizuku.ShizukuProvider"

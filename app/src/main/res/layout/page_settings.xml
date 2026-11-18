@@ -173,6 +173,14 @@
                 android:text="开机自动启动"
                 android:textColor="#263238"
                 android:textSize="14sp" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/swDimInternal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="接外接屏时关闭内屏（亮度 0，拔掉后恢复）"
+                android:textColor="#263238"
+                android:textSize="14sp" />
         </LinearLayout>
     </LinearLayout>
 </ScrollView>

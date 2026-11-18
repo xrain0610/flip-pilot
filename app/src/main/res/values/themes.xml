@@ -4,5 +4,9 @@
         <item name="colorPrimary">#2E7D32</item>
         <item name="colorPrimaryDark">#1B5E20</item>
         <item name="colorAccent">#43A047</item>
+        <item name="android:windowBackground">#F2F3F5</item>
+        <!-- The app is always light, so force dark status/navigation bar icons even in dark mode. -->
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>

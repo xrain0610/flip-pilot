@@ -20,14 +20,14 @@ val useDebugSigning = providers.gradleProperty("useDebugSigning").orNull == "tru
 android {
     namespace = "com.flip5.dockpilot"
     compileSdk = 35
-    buildToolsVersion = "35.0.0"
+    buildToolsVersion = "35.0.1"
 
     defaultConfig {
         applicationId = "com.flip5.dockpilot"
         minSdk = 31
         targetSdk = 35
-        versionCode = 2611001
-        versionName = "26.11.1"
+        versionCode = 2611002
+        versionName = "26.11.2"
     }
 
     signingConfigs {
